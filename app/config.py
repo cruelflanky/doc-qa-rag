@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     max_question_chars: int = Field(default=2000, gt=0)
     retry_attempts: int = Field(default=4, gt=0)
     http_timeout_s: float = Field(default=60.0, gt=0)
+
+    @field_validator("fastembed_cache_dir", mode="before")
+    @classmethod
+    def _empty_as_default(cls, value: str | None) -> str | None:
+        return value or None
 
     @model_validator(mode="after")
     def _check_consistency(self) -> "Settings":

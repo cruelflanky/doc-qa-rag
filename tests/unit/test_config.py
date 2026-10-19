@@ -53,3 +53,8 @@ def test_reranker_sees_whole_union_of_branches_by_default():
         50,
         100,
     )
+
+
+def test_empty_fastembed_cache_dir_means_library_default():
+    # пустая строка из .env.example не должна превращаться в «текущий каталог»
+    assert Settings(_env_file=None, fastembed_cache_dir="").fastembed_cache_dir is None
