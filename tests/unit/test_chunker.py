@@ -48,3 +48,19 @@ def test_chunk_indexes_are_sequential():
     chunks = chunk_document(build_doc(), chunk_size=200, chunk_overlap=30)
 
     assert [c.chunk_index for c in chunks] == list(range(len(chunks)))
+
+
+def test_fact_split_by_real_page_break_stays_in_one_chunk(tmp_path):
+    from app.ingest.pdf import load_pdf
+    from tests.fixtures.make_pdf import make_pdf
+
+    path = make_pdf(
+        tmp_path / "two_pages.pdf",
+        ["6.2 Гарантийный срок\n6.2.1. Гарантийный срок на товар составляет", "24 месяца."],
+    )
+    doc = load_pdf(path, max_pages=10)
+
+    [chunk] = chunk_document(doc, chunk_size=1000, chunk_overlap=100)
+
+    assert "составляет\n24 месяца" in chunk.text or "составляет 24 месяца" in chunk.text
+    assert (chunk.page_from, chunk.page_to) == (1, 2)

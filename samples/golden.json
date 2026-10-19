@@ -1,0 +1,153 @@
+[
+  {
+    "id": "exact_sum",
+    "doc": "contract_supply.pdf",
+    "kind": "exact",
+    "question": "Какова общая цена договора?",
+    "expect_found": true,
+    "expect_pages": [
+      7
+    ],
+    "expect_section": "2.1 Цена договора",
+    "expect_contains": "12 480 000"
+  },
+  {
+    "id": "exact_inn",
+    "doc": "contract_supply.pdf",
+    "kind": "exact",
+    "question": "Какой ИНН у Поставщика?",
+    "expect_found": true,
+    "expect_pages": [
+      71
+    ],
+    "expect_section": "13.1 Реквизиты Поставщика",
+    "expect_contains": "7701234567"
+  },
+  {
+    "id": "exact_buyer",
+    "doc": "contract_supply.pdf",
+    "kind": "exact",
+    "question": "Какая организация является Покупателем по договору?",
+    "expect_found": true,
+    "expect_pages": [
+      72
+    ],
+    "expect_section": "13.2 Реквизиты Покупателя",
+    "expect_contains": "Северный Терминал"
+  },
+  {
+    "id": "exact_clause",
+    "doc": "contract_supply.pdf",
+    "kind": "exact",
+    "question": "Что установлено пунктом 9.4.2 договора?",
+    "expect_found": true,
+    "expect_pages": [
+      55
+    ],
+    "expect_section": "9.4 Применимое право и язык договора",
+    "expect_contains": "русском языке"
+  },
+  {
+    "id": "exact_date",
+    "doc": "contract_supply.pdf",
+    "kind": "exact",
+    "question": "До какой даты действует договор?",
+    "expect_found": true,
+    "expect_pages": [
+      58
+    ],
+    "expect_section": "10.2 Срок действия",
+    "expect_contains": "31 декабря 2027"
+  },
+  {
+    "id": "similar_supply",
+    "doc": "contract_supply.pdf",
+    "kind": "similar_numbers",
+    "question": "Какой размер неустойки за просрочку поставки товара?",
+    "expect_found": true,
+    "expect_pages": [
+      22
+    ],
+    "expect_section": "4.2 Штрафные санкции",
+    "expect_contains": "0,1%"
+  },
+  {
+    "id": "similar_payment",
+    "doc": "contract_supply.pdf",
+    "kind": "similar_numbers",
+    "question": "Какая неустойка предусмотрена за просрочку оплаты?",
+    "expect_found": true,
+    "expect_pages": [
+      42
+    ],
+    "expect_section": "7.3 Неустойка за просрочку оплаты",
+    "expect_contains": "0,5%"
+  },
+  {
+    "id": "paraphrase_labels",
+    "doc": "contract_supply.pdf",
+    "kind": "paraphrase",
+    "question": "Можно ли отказаться принимать товар с неправильными этикетками?",
+    "expect_found": true,
+    "expect_pages": [
+      30
+    ],
+    "expect_section": "5.3 Отказ от приёмки",
+    "expect_contains": "маркировка"
+  },
+  {
+    "id": "cross_page_warranty",
+    "doc": "contract_supply.pdf",
+    "kind": "cross_page",
+    "question": "Сколько длится гарантия на товар?",
+    "expect_found": true,
+    "expect_pages": [
+      34,
+      35
+    ],
+    "expect_section": "6.2 Гарантийный срок",
+    "expect_contains": "24"
+  },
+  {
+    "id": "absent_cargo",
+    "doc": "contract_supply.pdf",
+    "kind": "absent",
+    "question": "Какой порядок страхования груза при перевозке?",
+    "expect_found": false,
+    "expect_pages": [],
+    "expect_section": null,
+    "expect_contains": ""
+  },
+  {
+    "id": "absent_ceo",
+    "doc": "contract_supply.pdf",
+    "kind": "absent",
+    "question": "Кто является генеральным директором Поставщика?",
+    "expect_found": false,
+    "expect_pages": [],
+    "expect_section": null,
+    "expect_contains": ""
+  },
+  {
+    "id": "absent_settlement",
+    "doc": "contract_supply.pdf",
+    "kind": "absent",
+    "question": "Как заключается мировое соглашение в арбитражном суде?",
+    "expect_found": false,
+    "expect_pages": [],
+    "expect_section": null,
+    "expect_contains": ""
+  },
+  {
+    "id": "isolation_short",
+    "doc": "contract_short.pdf",
+    "kind": "isolation",
+    "question": "Какой размер неустойки за просрочку поставки товара?",
+    "expect_found": true,
+    "expect_pages": [
+      3
+    ],
+    "expect_section": "4.2 Штрафные санкции",
+    "expect_contains": "0,3%"
+  }
+]

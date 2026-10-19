@@ -9,7 +9,9 @@ from pypdf.errors import PdfReadError
 
 from app.errors import DocumentError
 
-PAGE_SEPARATOR = "\n\n"
+# Не "\n\n": сплиттер режет по нему в первую очередь, и факт на стыке страниц
+# разорвался бы на два фрагмента.
+PAGE_SEPARATOR = "\n"
 PDF_MAGIC = b"%PDF-"
 
 
