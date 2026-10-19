@@ -8,7 +8,6 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 data/generated/
-.superpowers/
 
 # кеш моделей fastembed, если запускать вне Docker
 models--*/

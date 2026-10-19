@@ -2,6 +2,7 @@ import httpx
 import openai
 import pytest
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
+from tenacity import wait_none
 
 from app import retry as retry_module
 from app.retry import is_transient, with_retry
@@ -9,7 +10,7 @@ from app.retry import is_transient, with_retry
 
 @pytest.fixture(autouse=True)
 def no_sleep(monkeypatch):
-    monkeypatch.setattr(retry_module, "WAIT", retry_module.wait_none())
+    monkeypatch.setattr(retry_module, "WAIT", wait_none())
 
 
 def status_error(code: int) -> httpx.HTTPStatusError:

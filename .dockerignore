@@ -1,7 +1,6 @@
 .venv
 .git
 .env
-.superpowers
 .pytest_cache
 .ruff_cache
 .coverage

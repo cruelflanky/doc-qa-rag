@@ -1,5 +1,6 @@
 import pytest
 from langchain_core.documents import Document
+from tenacity import wait_none
 
 from app import retry as retry_module
 from app.config import Settings
@@ -20,7 +21,7 @@ CANDIDATES = [
 
 @pytest.fixture(autouse=True)
 def no_sleep(monkeypatch):
-    monkeypatch.setattr(retry_module, "WAIT", retry_module.wait_none())
+    monkeypatch.setattr(retry_module, "WAIT", wait_none())
 
 
 class FakeStore:

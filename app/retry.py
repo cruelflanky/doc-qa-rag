@@ -18,7 +18,6 @@ from tenacity import (
     Retrying,
     retry_if_exception,
     stop_after_attempt,
-    wait_none,
     wait_random_exponential,
 )
 
@@ -30,8 +29,6 @@ R = TypeVar("R")
 TOO_MANY_REQUESTS = 429
 SERVER_ERROR = 500
 WAIT = wait_random_exponential(multiplier=0.5, max=10)
-
-__all__ = ["is_transient", "with_retry", "wait_none"]
 
 
 def _is_retryable_status(status: int) -> bool:
