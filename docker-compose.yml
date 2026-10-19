@@ -1,4 +1,43 @@
+x-app: &app
+  build: .
+  image: doc-qa-rag:latest
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    QDRANT_URL: http://qdrant:6333
+    REDIS_URL: redis://redis:6379/0
+    UPLOAD_DIR: /data/uploads
+    FASTEMBED_CACHE_DIR: /opt/fastembed
+  volumes:
+    - uploads:/data/uploads
+  depends_on:
+    redis:
+      condition: service_healthy
+    qdrant:
+      condition: service_healthy
+  restart: unless-stopped
+
 services:
+  api:
+    <<: *app
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    <<: *app
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     ports:
@@ -23,3 +62,4 @@ services:
 
 volumes:
   qdrant_data:
+  uploads:
