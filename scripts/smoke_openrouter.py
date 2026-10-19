@@ -61,8 +61,11 @@ def check_chat() -> str:
 
 def main() -> int:
     failed = False
-    for name, check in [("embeddings", check_embeddings), ("rerank", check_rerank),
-                        ("chat", check_chat)]:
+    for name, check in [
+        ("embeddings", check_embeddings),
+        ("rerank", check_rerank),
+        ("chat", check_chat),
+    ]:
         try:
             print(f"OK   {name}: {check()}")
         except Exception as exc:  # noqa: BLE001 — smoke-скрипт показывает любую ошибку

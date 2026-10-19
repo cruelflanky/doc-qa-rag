@@ -13,8 +13,8 @@ def test_load_pdf_builds_page_offsets(tmp_path):
     assert doc.page_count == 3
     assert len(doc.page_offsets) == 3
     assert doc.page_offsets[0] == 0
-    assert doc.text[doc.page_offsets[1]:].startswith("Вторая страница")
-    assert doc.text[doc.page_offsets[2]:].startswith("Третья")
+    assert doc.text[doc.page_offsets[1] :].startswith("Вторая страница")
+    assert doc.text[doc.page_offsets[2] :].startswith("Третья")
 
 
 def test_load_pdf_rejects_too_many_pages(tmp_path):

@@ -19,7 +19,7 @@ def test_chunk_offsets_match_text():
 
     assert chunks
     for chunk in chunks:
-        assert doc.text[chunk.char_start:chunk.char_end] == chunk.text
+        assert doc.text[chunk.char_start : chunk.char_end] == chunk.text
 
 
 def test_chunk_never_crosses_section():

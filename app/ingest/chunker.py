@@ -27,7 +27,7 @@ def chunk_document(doc: ParsedDocument, chunk_size: int, chunk_overlap: int) -> 
     )
     chunks: list[Chunk] = []
     for section in find_sections(doc.text):
-        section_text = doc.text[section.start:section.end]
+        section_text = doc.text[section.start : section.end]
         for piece in splitter.create_documents([section_text]):
             start = section.start + piece.metadata["start_index"]
             end = start + len(piece.page_content)
