@@ -27,18 +27,27 @@ def _open_pdf(path: Path) -> PdfReader:
         if file.read(len(PDF_MAGIC)) != PDF_MAGIC:
             raise DocumentError("Файл не является корректным PDF")
     try:
-        return PdfReader(path)
+        reader = PdfReader(path)
+    except PdfReadError as exc:
+        raise DocumentError("Файл не является корректным PDF") from exc
+    if reader.is_encrypted:
+        raise DocumentError("PDF защищён паролем")
+    return reader
+
+
+def _extract_pages(reader: PdfReader, max_pages: int) -> list[str]:
+    # pypdf читает страницы лениво: битая структура всплывает только здесь
+    try:
+        page_count = len(reader.pages)
+        if page_count > max_pages:
+            raise DocumentError(f"Документ содержит {page_count} страниц, максимум {max_pages}")
+        return [(page.extract_text() or "").strip() for page in reader.pages]
     except PdfReadError as exc:
         raise DocumentError("Файл не является корректным PDF") from exc
 
 
 def load_pdf(path: Path, max_pages: int) -> ParsedDocument:
-    reader = _open_pdf(path)
-    page_count = len(reader.pages)
-    if page_count > max_pages:
-        raise DocumentError(f"Документ содержит {page_count} страниц, максимум {max_pages}")
-
-    pages = [(page.extract_text() or "").strip() for page in reader.pages]
+    pages = _extract_pages(_open_pdf(path), max_pages)
     if not any(pages):
         raise DocumentError("В документе нет текстового слоя (возможно, это скан)")
 

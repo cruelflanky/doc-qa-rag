@@ -4,11 +4,12 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import RequestResponseEndpoint
 
 from app.api import documents, health, tasks
-from app.api.deps import get_store
+from app.api.deps import get_settings_dep, get_store
 from app.errors import DocumentNotFoundError
 from app.retry import is_transient
 
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 UPSTREAM_UNAVAILABLE = "Внешний сервис временно недоступен, повторите запрос позже"
 INTERNAL_ERROR = "Внутренняя ошибка сервиса"
+MULTIPART_OVERHEAD_BYTES = 64 * 1024  # заголовки частей и поле title сверх самого файла
 
 
 @asynccontextmanager
@@ -44,6 +46,23 @@ async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def _limit_upload_size(request: Request, call_next: RequestResponseEndpoint) -> Response:
+    """Отклоняет слишком большую загрузку по Content-Length, не принимая тело.
+
+    Без этого Starlette сначала целиком запишет multipart-тело во временный файл.
+    """
+    if request.method == "POST" and request.url.path == "/documents":
+        settings = request.app.dependency_overrides.get(get_settings_dep, get_settings_dep)()
+        limit = settings.max_upload_mb * documents.BYTES_IN_MB
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > limit + MULTIPART_OVERHEAD_BYTES:
+            return JSONResponse(
+                {"detail": f"Файл больше {settings.max_upload_mb} МБ"},
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            )
+    return await call_next(request)
+
+
 def create_app() -> FastAPI:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -54,6 +73,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+    app.middleware("http")(_limit_upload_size)
     app.include_router(documents.router)
     app.include_router(tasks.router)
     app.include_router(health.router)

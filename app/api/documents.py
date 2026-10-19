@@ -23,7 +23,11 @@ BYTES_IN_MB = 1024 * 1024
 
 
 async def _save_upload(file: UploadFile, target: Path, max_bytes: int) -> None:
-    """Пишет файл потоково, проверяя сигнатуру PDF и лимит размера."""
+    """Копирует загруженный файл, проверяя сигнатуру PDF и лимит размера.
+
+    Starlette к этому моменту уже разобрал multipart-тело (во временный файл), поэтому
+    слишком большой запрос отсекается раньше — по Content-Length в main.py.
+    """
     written = 0
     with target.open("wb") as out:
         while chunk := await file.read(READ_CHUNK_BYTES):
@@ -59,8 +63,14 @@ async def upload_document(
         raise
 
     doc_title = (title or "").strip() or Path(file.filename or "document").stem
-    task = index_document.delay(doc_id, str(target), doc_title)
-    register_task(redis, task.id, doc_id)
+    try:
+        task = index_document.delay(doc_id, str(target), doc_title)
+        register_task(redis, task.id, doc_id)
+    except Exception:
+        # без task_id клиент не узнает о задаче; worker, если задача всё же ушла,
+        # завершится ошибкой «нет файла», и точки в Qdrant не появятся
+        target.unlink(missing_ok=True)
+        raise
     return UploadResponse(doc_id=doc_id, task_id=task.id, status_url=f"/tasks/{task.id}")
 
 

@@ -34,14 +34,13 @@ def _resources() -> tuple[QdrantStore, Embedder, Settings]:
 
 @celery_app.task(bind=True, name="index_document", max_retries=MAX_TASK_RETRIES)
 def index_document(self: Task, doc_id: str, path: str, title: str) -> dict:
-    store, embedder, settings = _resources()
-
     def report(stage: str, current: int, total: int) -> None:
         self.update_state(
             state="PROGRESS", meta={"stage": stage, "current": current, "total": total}
         )
 
     try:
+        store, embedder, settings = _resources()  # Qdrant может быть недоступен и здесь
         result = index_pdf(
             Path(path),
             doc_id,

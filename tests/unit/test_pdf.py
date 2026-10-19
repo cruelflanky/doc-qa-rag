@@ -47,3 +47,39 @@ def test_page_for_offset_boundaries():
     assert page_for_offset(offsets, 100) == 2
     assert page_for_offset(offsets, 249) == 2
     assert page_for_offset(offsets, 10_000) == 3
+
+
+def test_load_pdf_rejects_encrypted_pdf(tmp_path):
+    from pypdf import PdfReader, PdfWriter
+
+    plain = make_pdf(tmp_path / "plain.pdf", ["Секретный договор"])
+    writer = PdfWriter(clone_from=PdfReader(plain))
+    writer.encrypt("secret")
+    path = tmp_path / "locked.pdf"
+    with path.open("wb") as file:
+        writer.write(file)
+
+    with pytest.raises(DocumentError, match="защищён паролем"):
+        load_pdf(path, max_pages=10)
+
+
+def test_load_pdf_maps_read_error_on_page_access(tmp_path, monkeypatch):
+    from pypdf.errors import PdfReadError
+
+    from app.ingest import pdf as pdf_module
+
+    class BrokenReader:
+        is_encrypted = False
+
+        def __init__(self, path):
+            pass
+
+        @property
+        def pages(self):
+            raise PdfReadError("broken xref")
+
+    monkeypatch.setattr(pdf_module, "PdfReader", BrokenReader)
+    path = make_pdf(tmp_path / "doc.pdf", ["текст"])
+
+    with pytest.raises(DocumentError, match="не является корректным PDF"):
+        load_pdf(path, max_pages=10)

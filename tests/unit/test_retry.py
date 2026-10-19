@@ -96,3 +96,12 @@ def test_openai_rate_limit_and_server_errors_are_transient():
     assert is_transient(openai.InternalServerError("x", response=response, body=None))
     response = httpx.Response(400, request=_openai_request())
     assert not is_transient(openai.BadRequestError("x", response=response, body=None))
+
+
+def test_redis_and_broker_outages_are_transient():
+    import kombu.exceptions
+    import redis
+
+    assert is_transient(redis.exceptions.ConnectionError("down"))
+    assert is_transient(redis.exceptions.TimeoutError("slow"))
+    assert is_transient(kombu.exceptions.OperationalError("broker down"))

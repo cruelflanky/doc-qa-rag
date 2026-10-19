@@ -1,4 +1,4 @@
-"""Повторные попытки при временной недоступности внешних сервисов (OpenRouter, Qdrant).
+"""Повторные попытки при временной недоступности внешних сервисов (OpenRouter, Qdrant, Redis).
 
 Повторяем только то, что может пройти само: сетевые сбои, таймауты, 429 и 5xx.
 Ошибки клиента (4xx) повторять бессмысленно — они пробрасываются сразу.
@@ -10,7 +10,9 @@ from collections.abc import Callable
 from typing import ParamSpec, TypeVar
 
 import httpx
+import kombu.exceptions
 import openai
+import redis.exceptions
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 from tenacity import (
     Retrying,
@@ -49,7 +51,10 @@ def is_transient(exc: BaseException) -> bool:
         | openai.APIConnectionError
         | ResponseHandlingException
         | ConnectionError
-        | TimeoutError,
+        | TimeoutError
+        | redis.exceptions.ConnectionError
+        | redis.exceptions.TimeoutError
+        | kombu.exceptions.OperationalError,
     )
 
 

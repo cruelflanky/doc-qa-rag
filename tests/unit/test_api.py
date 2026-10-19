@@ -214,3 +214,32 @@ def test_health_503_when_qdrant_down(ctx):
 
     assert response.status_code == 503
     assert response.json()["qdrant"] == "unavailable"
+
+
+def test_upload_rejected_by_content_length_before_body_is_read(ctx):
+    with patch("app.api.documents._save_upload", side_effect=AssertionError("тело прочитано")):
+        response, task = upload(ctx.client, content=PDF_BYTES + b"0" * (2 * 1024 * 1024))
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == "Файл больше 1 МБ"
+    task.delay.assert_not_called()
+
+
+@pytest.mark.parametrize("where", ["enqueue", "registry"])
+def test_upload_returns_503_and_removes_file_when_redis_down(ctx, tmp_path, where):
+    import kombu.exceptions
+    import redis as redis_lib
+
+    if where == "registry":
+        ctx.redis = MagicMock()
+        ctx.redis.set.side_effect = redis_lib.exceptions.ConnectionError("redis down")
+    with patch("app.api.documents.index_document") as task:
+        task.delay.return_value = SimpleNamespace(id="task-1")
+        if where == "enqueue":
+            task.delay.side_effect = kombu.exceptions.OperationalError("broker down")
+        response = ctx.client.post(
+            "/documents", files={"file": ("c.pdf", PDF_BYTES, "application/pdf")}
+        )
+
+    assert response.status_code == 503
+    assert list(tmp_path.iterdir()) == []

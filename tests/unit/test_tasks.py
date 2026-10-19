@@ -105,3 +105,14 @@ def test_task_status_hides_internal_error_details():
 
     assert "secret" not in response.error
     assert response.error == tasks.INTERNAL_ERROR_MESSAGE
+
+
+def test_task_retries_when_worker_resources_unavailable():
+    error = ConnectionError("Qdrant недоступен при старте worker")
+    with (
+        patch.object(tasks, "_resources", side_effect=error),
+        patch.object(tasks.index_document, "retry", side_effect=Retry()) as retry,
+    ):
+        run_task()
+
+    assert retry.call_args.kwargs["exc"] is error
