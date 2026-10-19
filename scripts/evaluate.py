@@ -11,6 +11,7 @@ import json
 import statistics
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -126,7 +127,7 @@ def ask(client: httpx.Client, doc_id: str, item: dict) -> Outcome:
     )
 
 
-def share(outcomes: list[Outcome], predicate) -> float:
+def share(outcomes: list[Outcome], predicate: Callable[[Outcome], bool]) -> float:
     return sum(map(predicate, outcomes)) / len(outcomes) if outcomes else 1.0
 
 

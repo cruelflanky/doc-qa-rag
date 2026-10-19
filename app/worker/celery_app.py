@@ -3,8 +3,9 @@
 from celery import Celery
 
 from app.config import get_settings
+from app.task_registry import TASK_TTL_SECONDS
 
-RESULT_TTL_SECONDS = 7 * 24 * 3600
+RESULT_TTL_SECONDS = TASK_TTL_SECONDS  # реестр task_id → doc_id живёт столько же
 
 _settings = get_settings()
 

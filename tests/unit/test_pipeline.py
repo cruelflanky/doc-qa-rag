@@ -33,12 +33,12 @@ class FakeStore:
     def document_ready(self, doc_id):
         return self.ready
 
-    def hybrid_search(self, doc_id, dense, sparse, **params):
+    def hybrid_search(self, doc_id, dense, sparse, params):
         self.calls.append("hybrid_search")
         self.params = params
         return self.candidates
 
-    def hybrid_search_debug(self, doc_id, dense, sparse, **params):
+    def hybrid_search_debug(self, doc_id, dense, sparse, params):
         self.calls.append("hybrid_search_debug")
         return SearchTrace(
             candidates=self.candidates,
@@ -128,7 +128,7 @@ def test_ask_passes_only_top_n_reranked_fragments_to_llm(settings):
     assert "[3] (стр. 1–1" in prompt
     assert "[4]" not in prompt
     assert [c.chunk_index for c in response.citations] == [4, 1]
-    assert store.params["limit"] == 6
+    assert store.params.limit == 6
 
 
 def test_ask_without_debug_has_no_debug_and_uses_single_search(settings):

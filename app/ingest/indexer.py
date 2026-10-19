@@ -6,6 +6,7 @@
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
+from itertools import batched
 from pathlib import Path
 
 from app.config import Settings
@@ -21,10 +22,6 @@ logger = logging.getLogger(__name__)
 ProgressCallback = Callable[[str, int, int], None]
 
 
-def _batches(items: list[Chunk], size: int) -> list[list[Chunk]]:
-    return [items[i : i + size] for i in range(0, len(items), size)]
-
-
 def _write_chunks(
     meta: DocMeta,
     chunks: list[Chunk],
@@ -34,7 +31,7 @@ def _write_chunks(
     batch_size: int,
     on_progress: ProgressCallback,
 ) -> None:
-    batches = _batches(chunks, batch_size)
+    batches = [list(batch) for batch in batched(chunks, batch_size)]
     vectors = []
     for done, batch in enumerate(batches, start=1):
         texts = [chunk.text for chunk in batch]

@@ -15,6 +15,7 @@ import openai
 import redis.exceptions
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 from tenacity import (
+    RetryCallState,
     Retrying,
     retry_if_exception,
     stop_after_attempt,
@@ -55,7 +56,7 @@ def is_transient(exc: BaseException) -> bool:
     )
 
 
-def _log_retry(retry_state) -> None:
+def _log_retry(retry_state: RetryCallState) -> None:
     exc = retry_state.outcome.exception()
     logger.warning(
         "Временная ошибка %s (попытка %d), повторяем: %s",

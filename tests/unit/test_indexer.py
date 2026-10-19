@@ -19,7 +19,7 @@ class RecordingStore:
     def delete_document(self, doc_id):
         self.calls.append("delete_document")
 
-    def upsert_chunks(self, meta, chunks, dense, sparse, total_chunks=None):
+    def upsert_chunks(self, meta, chunks, dense, sparse, *, total_chunks):
         self.calls.append("upsert_chunks")
         self.upserted += len(chunks)
         self.total_chunks = total_chunks

@@ -7,14 +7,14 @@
 import uuid
 from collections.abc import Callable
 from datetime import datetime
-from typing import Literal, TypeVar
+from typing import Any, TypeVar
 
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
 from app.ingest.chunker import Chunk
 from app.retry import with_retry
-from app.store.models import Candidate, DocMeta, SearchTrace, StoredDocument
+from app.store.models import Candidate, DocMeta, SearchParams, SearchTrace, StoredDocument
 
 DENSE_VECTOR = "dense"
 SPARSE_VECTOR = "bm25"
@@ -69,7 +69,7 @@ class QdrantStore:
         self.dense_dim = dense_dim
         self.retry_attempts = retry_attempts
 
-    def _call(self, func: Callable[..., T], *args, **kwargs) -> T:
+    def _call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         return with_retry(self.retry_attempts)(func)(*args, **kwargs)
 
     def ensure_collection(self) -> None:
@@ -99,9 +99,9 @@ class QdrantStore:
         chunks: list[Chunk],
         dense: list[list[float]],
         sparse: list[models.SparseVector],
-        total_chunks: int | None = None,
+        *,
+        total_chunks: int,
     ) -> None:
-        doc_chunks = total_chunks if total_chunks is not None else len(chunks)
         points = [
             models.PointStruct(
                 id=_point_id(meta.doc_id, chunk.chunk_index),
@@ -110,7 +110,7 @@ class QdrantStore:
                     "doc_id": meta.doc_id,
                     "doc_title": meta.title,
                     "doc_pages": meta.pages,
-                    "doc_chunks": doc_chunks,
+                    "doc_chunks": total_chunks,
                     "uploaded_at": meta.uploaded_at.isoformat(),
                     "chunk_index": chunk.chunk_index,
                     "page_from": chunk.page_from,
@@ -184,32 +184,28 @@ class QdrantStore:
         doc_id: str,
         dense: list[float],
         sparse: models.SparseVector,
-        *,
-        dense_limit: int,
-        sparse_limit: int,
-        fusion: Literal["rrf", "dbsf"],
-        limit: int,
+        params: SearchParams,
     ) -> models.QueryRequest:
         doc_filter = _doc_filter(doc_id, only_ready=True)
         return models.QueryRequest(
             prefetch=[
                 models.Prefetch(
-                    query=dense, using=DENSE_VECTOR, limit=dense_limit, filter=doc_filter
+                    query=dense, using=DENSE_VECTOR, limit=params.dense_limit, filter=doc_filter
                 ),
                 models.Prefetch(
-                    query=sparse, using=SPARSE_VECTOR, limit=sparse_limit, filter=doc_filter
+                    query=sparse, using=SPARSE_VECTOR, limit=params.sparse_limit, filter=doc_filter
                 ),
             ],
-            query=models.FusionQuery(fusion=FUSIONS[fusion]),
-            limit=limit,
+            query=models.FusionQuery(fusion=FUSIONS[params.fusion]),
+            limit=params.limit,
             with_payload=True,
         )
 
     def hybrid_search(
-        self, doc_id: str, dense: list[float], sparse: models.SparseVector, **params
+        self, doc_id: str, dense: list[float], sparse: models.SparseVector, params: SearchParams
     ) -> list[Candidate]:
         """Один запрос к Qdrant: обе ветви в prefetch, объединение — FusionQuery на сервере."""
-        request = self._fused_request(doc_id, dense, sparse, **params)
+        request = self._fused_request(doc_id, dense, sparse, params)
         response = self._call(
             self.client.query_points,
             self.collection,
@@ -221,17 +217,17 @@ class QdrantStore:
         return [_to_candidate(p, rank) for rank, p in enumerate(response.points, start=1)]
 
     def hybrid_search_debug(
-        self, doc_id: str, dense: list[float], sparse: models.SparseVector, **params
+        self, doc_id: str, dense: list[float], sparse: models.SparseVector, params: SearchParams
     ) -> SearchTrace:
         """Debug: в одном batch-вызове основной запрос плюс каждая ветвь отдельно для подсчёта."""
         doc_filter = _doc_filter(doc_id, only_ready=True)
         requests = [
-            self._fused_request(doc_id, dense, sparse, **params),
+            self._fused_request(doc_id, dense, sparse, params),
             models.QueryRequest(
-                query=dense, using=DENSE_VECTOR, limit=params["dense_limit"], filter=doc_filter
+                query=dense, using=DENSE_VECTOR, limit=params.dense_limit, filter=doc_filter
             ),
             models.QueryRequest(
-                query=sparse, using=SPARSE_VECTOR, limit=params["sparse_limit"], filter=doc_filter
+                query=sparse, using=SPARSE_VECTOR, limit=params.sparse_limit, filter=doc_filter
             ),
         ]
         fused, dense_only, sparse_only = self._call(

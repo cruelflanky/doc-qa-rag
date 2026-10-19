@@ -1,5 +1,6 @@
 """Эмбеддинги через LangChain: dense — OpenAIEmbeddings (OpenRouter), sparse — BM25 (fastembed)."""
 
+from itertools import batched
 from typing import Protocol
 
 from langchain_core.embeddings import Embeddings
@@ -37,12 +38,10 @@ class LangChainEmbedder:
         self.batch_size = batch_size
         self._retry = with_retry(retry_attempts)
 
-    def _batches(self, texts: list[str]) -> list[list[str]]:
-        return [texts[i : i + self.batch_size] for i in range(0, len(texts), self.batch_size)]
-
     def embed_dense(self, texts: list[str]) -> list[list[float]]:
         embed = self._retry(self.dense.embed_documents)
-        return [vector for batch in self._batches(texts) for vector in embed(batch)]
+        batches = [list(batch) for batch in batched(texts, self.batch_size)]
+        return [vector for batch in batches for vector in embed(batch)]
 
     def embed_sparse(self, texts: list[str]) -> list[models.SparseVector]:
         return [_to_qdrant(v) for v in self.sparse.embed_documents(texts)]

@@ -1,10 +1,11 @@
 """Настройки сервиса. Все значения берутся из переменных окружения (или файла .env)."""
 
 from functools import lru_cache
-from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.store.models import Fusion
 
 
 class Settings(BaseSettings):
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
     # Поиск и реранк
     dense_limit: int = Field(default=50, gt=0)
     sparse_limit: int = Field(default=50, gt=0)
-    fusion: Literal["rrf", "dbsf"] = "rrf"
+    fusion: Fusion = "rrf"
     rerank_candidates: int = Field(default=100, gt=0)
     rerank_top_n: int = Field(default=5, gt=0)
     rerank_min_score: float = Field(default=0.1, ge=0.0, le=1.0)

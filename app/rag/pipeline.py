@@ -4,6 +4,7 @@
 """
 
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 
@@ -19,7 +20,7 @@ from app.rag.answer import build_messages, finalize, not_found_response
 from app.rag.reranker import build_reranker
 from app.retry import with_retry
 from app.schemas import AnswerResponse, DebugInfo, LLMAnswer, RerankedItem
-from app.store.models import Candidate, SearchTrace
+from app.store.models import Candidate, SearchParams, SearchTrace
 from app.store.qdrant_store import QdrantStore
 
 
@@ -34,7 +35,7 @@ class _Timer:
         self.ms: dict[str, int] = {}
 
     @contextmanager
-    def measure(self, name: str):
+    def measure(self, name: str) -> Iterator[None]:
         start = time.perf_counter()
         yield
         self.ms[name] = round((time.perf_counter() - start) * 1000)
@@ -58,16 +59,16 @@ class QAPipeline:
     def _search(self, doc_id: str, question: str, debug: bool, timer: _Timer) -> SearchTrace:
         with timer.measure("embed"):
             dense, sparse = self.embedder.embed_query(question)
-        params = {
-            "dense_limit": self.settings.dense_limit,
-            "sparse_limit": self.settings.sparse_limit,
-            "fusion": self.settings.fusion,
-            "limit": self.settings.rerank_candidates,
-        }
+        params = SearchParams(
+            dense_limit=self.settings.dense_limit,
+            sparse_limit=self.settings.sparse_limit,
+            fusion=self.settings.fusion,
+            limit=self.settings.rerank_candidates,
+        )
         with timer.measure("search"):
             if debug:
-                return self.store.hybrid_search_debug(doc_id, dense, sparse, **params)
-            candidates = self.store.hybrid_search(doc_id, dense, sparse, **params)
+                return self.store.hybrid_search_debug(doc_id, dense, sparse, params)
+            candidates = self.store.hybrid_search(doc_id, dense, sparse, params)
             return SearchTrace(candidates=candidates, dense_ids=[], sparse_ids=[])
 
     def _rerank(self, question: str, candidates: list[Candidate]) -> list[RankedFragment]:
@@ -165,9 +166,9 @@ def build_store(settings: Settings) -> QdrantStore:
     )
 
 
-def build_pipeline(settings: Settings, store: QdrantStore | None = None) -> QAPipeline:
+def build_pipeline(settings: Settings, store: QdrantStore) -> QAPipeline:
     return QAPipeline(
-        store=store or build_store(settings),
+        store=store,
         embedder=build_embedder(settings),
         reranker=build_reranker(settings),
         llm=build_llm(settings),

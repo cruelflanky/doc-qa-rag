@@ -2,6 +2,9 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
+
+Fusion = Literal["rrf", "dbsf"]
 
 
 @dataclass(frozen=True)
@@ -12,6 +15,16 @@ class DocMeta:
     title: str
     pages: int
     uploaded_at: datetime
+
+
+@dataclass(frozen=True)
+class SearchParams:
+    """Параметры гибридного поиска: кандидатов из каждой ветви, способ слияния, итог."""
+
+    dense_limit: int
+    sparse_limit: int
+    fusion: Fusion
+    limit: int
 
 
 @dataclass(frozen=True)

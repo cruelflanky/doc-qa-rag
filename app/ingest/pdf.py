@@ -13,6 +13,7 @@ from app.errors import DocumentError
 # разорвался бы на два фрагмента.
 PAGE_SEPARATOR = "\n"
 PDF_MAGIC = b"%PDF-"
+INVALID_PDF_MESSAGE = "Файл не является корректным PDF"
 
 
 @dataclass(frozen=True)
@@ -25,11 +26,11 @@ class ParsedDocument:
 def _open_pdf(path: Path) -> PdfReader:
     with path.open("rb") as file:
         if file.read(len(PDF_MAGIC)) != PDF_MAGIC:
-            raise DocumentError("Файл не является корректным PDF")
+            raise DocumentError(INVALID_PDF_MESSAGE)
     try:
         reader = PdfReader(path)
     except PdfReadError as exc:
-        raise DocumentError("Файл не является корректным PDF") from exc
+        raise DocumentError(INVALID_PDF_MESSAGE) from exc
     if reader.is_encrypted:
         raise DocumentError("PDF защищён паролем")
     return reader
@@ -43,7 +44,7 @@ def _extract_pages(reader: PdfReader, max_pages: int) -> list[str]:
             raise DocumentError(f"Документ содержит {page_count} страниц, максимум {max_pages}")
         return [(page.extract_text() or "").strip() for page in reader.pages]
     except PdfReadError as exc:
-        raise DocumentError("Файл не является корректным PDF") from exc
+        raise DocumentError(INVALID_PDF_MESSAGE) from exc
 
 
 def load_pdf(path: Path, max_pages: int) -> ParsedDocument:

@@ -6,7 +6,7 @@ import pytest
 from langchain_qdrant import FastEmbedSparse
 from qdrant_client import QdrantClient, models
 
-from app.store.models import DocMeta
+from app.store.models import DocMeta, SearchParams
 from app.store.qdrant_store import QdrantStore
 from tests.fakes import fake_dense, make_chunks
 
@@ -46,6 +46,7 @@ def index(store, sparse_model, texts, *, ready=True, title="Договор") -> 
         chunks,
         dense=[fake_dense(t, DIM) for t in texts],
         sparse=[to_qdrant(v) for v in sparse_model.embed_documents(texts)],
+        total_chunks=len(chunks),
     )
     if ready:
         store.mark_ready(doc_id)
@@ -53,9 +54,11 @@ def index(store, sparse_model, texts, *, ready=True, title="Договор") -> 
 
 
 def search(store, sparse_model, doc_id, query, **overrides):
-    params = dict(dense_limit=10, sparse_limit=10, fusion="rrf", limit=10) | overrides
+    params = SearchParams(
+        **(dict(dense_limit=10, sparse_limit=10, fusion="rrf", limit=10) | overrides)
+    )
     return store.hybrid_search(
-        doc_id, fake_dense(query, DIM), to_qdrant(sparse_model.embed_query(query)), **params
+        doc_id, fake_dense(query, DIM), to_qdrant(sparse_model.embed_query(query)), params
     )
 
 
@@ -131,13 +134,13 @@ def test_debug_trace_reports_branch_ids(store, sparse_model):
     doc_id = index(store, sparse_model, FILLER[:5])
     query = "обязательства добросовестно"
     dense, sparse = fake_dense(query, DIM), to_qdrant(sparse_model.embed_query(query))
-    params = dict(dense_limit=10, sparse_limit=10, fusion="rrf", limit=10)
+    params = SearchParams(dense_limit=10, sparse_limit=10, fusion="rrf", limit=10)
 
-    trace = store.hybrid_search_debug(doc_id, dense, sparse, **params)
+    trace = store.hybrid_search_debug(doc_id, dense, sparse, params)
 
     assert trace.dense_ids
     assert trace.sparse_ids
-    plain = store.hybrid_search(doc_id, dense, sparse, **params)
+    plain = store.hybrid_search(doc_id, dense, sparse, params)
     # при равных RRF-оценках порядок не определён, поэтому сравниваем набор и оценки
     assert {c.point_id for c in trace.candidates} == {c.point_id for c in plain}
     assert [c.fused_score for c in trace.candidates] == [c.fused_score for c in plain]

@@ -1,7 +1,7 @@
 """Pydantic-схемы API и структурированного ответа LLM."""
 
 from datetime import datetime
-from typing import Literal, Self
+from typing import Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -101,7 +101,8 @@ class IndexResult(BaseModel):
     chunks: int
 
 
-TaskState = Literal["PENDING", "STARTED", "PROGRESS", "RETRY", "SUCCESS", "FAILURE"]
+# Основные состояния Celery плюс PROGRESS; редкие (REVOKED, REJECTED, …) отдаются как есть
+TaskState = str
 
 
 class TaskStatusResponse(BaseModel):

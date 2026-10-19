@@ -116,3 +116,10 @@ def test_task_retries_when_worker_resources_unavailable():
         run_task()
 
     assert retry.call_args.kwargs["exc"] is error
+
+
+@pytest.mark.parametrize("state", ["REVOKED", "RECEIVED", "REJECTED", "IGNORED"])
+def test_task_status_reports_any_celery_state(state):
+    response = status(state)
+
+    assert response.state == state
