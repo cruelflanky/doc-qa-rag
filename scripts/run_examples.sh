@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Реальные примеры запросов для README. Стек должен быть поднят: docker compose up -d --build
-# Запуск: scripts/run_examples.sh > docs/examples-raw.md
+# Запуск: scripts/run_examples.sh > examples.md
 set -euo pipefail
 
 BASE="${BASE_URL:-http://localhost:8000}"

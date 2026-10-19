@@ -36,13 +36,32 @@ class Outcome:
         return " ".join(text.replace(" ", " ").split()).lower()
 
     @property
+    def locations(self) -> list[tuple[set[int], str | None]]:
+        """Основное место факта и альтернативные (факт честно указан в нескольких местах)."""
+        main = (set(self.item["expect_pages"]), self.item["expect_section"])
+        extra = [(set(a["pages"]), a["section"]) for a in self.item.get("also_found_in", [])]
+        return [main, *extra]
+
+    def _cited(self, pages: set[int], section: str | None) -> bool:
+        return any(
+            pages & set(range(a, b + 1)) and (not section or section == cited)
+            for (a, b), cited in zip(self.pages, self.sections, strict=True)
+        )
+
+    @property
     def page_hit(self) -> bool:
-        expected = set(self.item["expect_pages"])
-        return any(expected & set(range(a, b + 1)) for a, b in self.pages)
+        return any(
+            pages & set(range(a, b + 1)) for pages, _ in self.locations for a, b in self.pages
+        )
 
     @property
     def section_hit(self) -> bool:
-        return not self.item["expect_section"] or self.item["expect_section"] in self.sections
+        return any(not section or section in self.sections for _, section in self.locations)
+
+    @property
+    def location_hit(self) -> bool:
+        """Есть цитата, у которой и страница, и раздел совпадают с одним из мест факта."""
+        return any(self._cited(pages, section) for pages, section in self.locations)
 
     @property
     def contains_ok(self) -> bool:
@@ -50,13 +69,13 @@ class Outcome:
 
     @property
     def retrieval_hit(self) -> bool:
-        return bool(set(self.item["expect_pages"]) & set(self.reranked_pages))
+        return any(pages & set(self.reranked_pages) for pages, _ in self.locations)
 
     @property
     def correct(self) -> bool:
         if not self.item["expect_found"]:
             return not self.found and not self.pages
-        return self.found and self.page_hit and self.section_hit and self.contains_ok
+        return self.found and self.location_hit and self.contains_ok
 
 
 def ensure_documents(client: httpx.Client, names: set[str]) -> dict[str, str]:
@@ -100,7 +119,9 @@ def ask(client: httpx.Client, doc_id: str, item: dict) -> Outcome:
         answer=body["answer"],
         pages=[(c["page"], c["page_to"]) for c in body["citations"]],
         sections=[c["section"] for c in body["citations"]],
-        reranked_pages=[r["page"] for r in body["debug"]["reranked"]],
+        reranked_pages=[
+            p for r in body["debug"]["reranked"] for p in range(r["page"], r["page_to"] + 1)
+        ],
         latency_ms=round((time.perf_counter() - started) * 1000),
     )
 

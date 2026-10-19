@@ -91,3 +91,14 @@ def test_short_contract_has_different_penalty():
     assert 3 <= short.page_count <= 5
     assert "0,3%" in short.text
     assert "0,1%" not in short.text
+
+
+def test_alternative_locations_contain_the_value(supply):
+    pages = [normalized(p) for p in page_texts(supply)]
+    titles = {s.title for s in find_sections(supply.text)}
+    buyer = next(i for i in GOLDEN if i["id"] == "exact_buyer")
+
+    assert buyer["also_found_in"], "преамбула тоже называет Покупателя"
+    for location in buyer["also_found_in"]:
+        assert location["section"] in titles
+        assert any(normalized(buyer["expect_contains"]) in pages[n - 1] for n in location["pages"])

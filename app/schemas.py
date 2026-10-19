@@ -23,6 +23,7 @@ class RerankedItem(BaseModel):
     in_dense: bool
     in_sparse: bool
     page: int
+    page_to: int
     section: str
 
 

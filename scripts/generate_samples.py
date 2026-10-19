@@ -170,6 +170,10 @@ def golden_item(fact: Fact, doc_path: Path) -> dict:
         "expect_pages": pages,
         "expect_section": fact.section,
         "expect_contains": fact.expect_contains,
+        "also_found_in": [
+            {"pages": locate_pages(doc_path, text), "section": section}
+            for text, section in fact.also_in
+        ],
     }
 
 

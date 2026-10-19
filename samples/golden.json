@@ -9,7 +9,8 @@
       7
     ],
     "expect_section": "2.1 Цена договора",
-    "expect_contains": "12 480 000"
+    "expect_contains": "12 480 000",
+    "also_found_in": []
   },
   {
     "id": "exact_inn",
@@ -21,7 +22,8 @@
       71
     ],
     "expect_section": "13.1 Реквизиты Поставщика",
-    "expect_contains": "7701234567"
+    "expect_contains": "7701234567",
+    "also_found_in": []
   },
   {
     "id": "exact_buyer",
@@ -33,7 +35,15 @@
       72
     ],
     "expect_section": "13.2 Реквизиты Покупателя",
-    "expect_contains": "Северный Терминал"
+    "expect_contains": "Северный Терминал",
+    "also_found_in": [
+      {
+        "pages": [
+          1
+        ],
+        "section": "Вводная часть"
+      }
+    ]
   },
   {
     "id": "exact_clause",
@@ -45,7 +55,8 @@
       55
     ],
     "expect_section": "9.4 Применимое право и язык договора",
-    "expect_contains": "русском языке"
+    "expect_contains": "русском языке",
+    "also_found_in": []
   },
   {
     "id": "exact_date",
@@ -57,7 +68,8 @@
       58
     ],
     "expect_section": "10.2 Срок действия",
-    "expect_contains": "31 декабря 2027"
+    "expect_contains": "31 декабря 2027",
+    "also_found_in": []
   },
   {
     "id": "similar_supply",
@@ -69,7 +81,8 @@
       22
     ],
     "expect_section": "4.2 Штрафные санкции",
-    "expect_contains": "0,1%"
+    "expect_contains": "0,1%",
+    "also_found_in": []
   },
   {
     "id": "similar_payment",
@@ -81,7 +94,8 @@
       42
     ],
     "expect_section": "7.3 Неустойка за просрочку оплаты",
-    "expect_contains": "0,5%"
+    "expect_contains": "0,5%",
+    "also_found_in": []
   },
   {
     "id": "paraphrase_labels",
@@ -93,7 +107,8 @@
       30
     ],
     "expect_section": "5.3 Отказ от приёмки",
-    "expect_contains": "маркировка"
+    "expect_contains": "маркировка",
+    "also_found_in": []
   },
   {
     "id": "cross_page_warranty",
@@ -106,7 +121,8 @@
       35
     ],
     "expect_section": "6.2 Гарантийный срок",
-    "expect_contains": "24"
+    "expect_contains": "24",
+    "also_found_in": []
   },
   {
     "id": "absent_cargo",
@@ -116,7 +132,8 @@
     "expect_found": false,
     "expect_pages": [],
     "expect_section": null,
-    "expect_contains": ""
+    "expect_contains": "",
+    "also_found_in": []
   },
   {
     "id": "absent_ceo",
@@ -126,7 +143,8 @@
     "expect_found": false,
     "expect_pages": [],
     "expect_section": null,
-    "expect_contains": ""
+    "expect_contains": "",
+    "also_found_in": []
   },
   {
     "id": "absent_settlement",
@@ -136,7 +154,8 @@
     "expect_found": false,
     "expect_pages": [],
     "expect_section": null,
-    "expect_contains": ""
+    "expect_contains": "",
+    "also_found_in": []
   },
   {
     "id": "isolation_short",
@@ -148,6 +167,7 @@
       3
     ],
     "expect_section": "4.2 Штрафные санкции",
-    "expect_contains": "0,3%"
+    "expect_contains": "0,3%",
+    "also_found_in": []
   }
 ]

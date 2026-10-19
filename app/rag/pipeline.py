@@ -130,6 +130,7 @@ class QAPipeline:
                     in_dense=r.candidate.point_id in dense_ids,
                     in_sparse=r.candidate.point_id in sparse_ids,
                     page=r.candidate.page_from,
+                    page_to=r.candidate.page_to,
                     section=r.candidate.section,
                 )
                 for r in ranked

@@ -42,3 +42,14 @@ def test_fusion_rejects_unknown_value(minimal_env):
 def test_min_score_must_be_within_unit_interval(minimal_env):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, rerank_min_score=1.5)
+
+
+def test_reranker_sees_whole_union_of_branches_by_default():
+    # RRF вытесняет кандидатов, найденных одной ветвью, — реранкер должен видеть объединение целиком
+    settings = Settings(_env_file=None)
+
+    assert (settings.dense_limit, settings.sparse_limit, settings.rerank_candidates) == (
+        50,
+        50,
+        100,
+    )

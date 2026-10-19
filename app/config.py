@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     fastembed_cache_dir: str | None = None
 
     # Поиск и реранк
-    dense_limit: int = Field(default=30, gt=0)
-    sparse_limit: int = Field(default=30, gt=0)
+    dense_limit: int = Field(default=50, gt=0)
+    sparse_limit: int = Field(default=50, gt=0)
     fusion: Literal["rrf", "dbsf"] = "rrf"
-    rerank_candidates: int = Field(default=30, gt=0)
+    rerank_candidates: int = Field(default=100, gt=0)
     rerank_top_n: int = Field(default=5, gt=0)
     rerank_min_score: float = Field(default=0.1, ge=0.0, le=1.0)
 

@@ -10,7 +10,10 @@ from app.store.models import Candidate, SearchTrace
 from tests.fakes import FakeEmbedder
 
 CANDIDATES = [
-    Candidate(f"p{i}", i, f"Фрагмент {i}", i + 1, i + 1, f"{i}. РАЗДЕЛ", 1.0 / (i + 1), i + 1)
+    # фрагмент 4 переходит со стр. 5 на стр. 6
+    Candidate(
+        f"p{i}", i, f"Фрагмент {i}", i + 1, i + 1 + (i == 4), f"{i}. РАЗДЕЛ", 1.0 / (i + 1), i + 1
+    )
     for i in range(6)
 ]
 
@@ -119,7 +122,7 @@ def test_ask_passes_only_top_n_reranked_fragments_to_llm(settings):
     response = pipeline.ask("doc", "вопрос")
 
     prompt = llm.messages[0][-1].content
-    assert "[1] (стр. 5–5, раздел «4. РАЗДЕЛ»)" in prompt
+    assert "[1] (стр. 5–6, раздел «4. РАЗДЕЛ»)" in prompt
     assert "[2] (стр. 2–2" in prompt
     assert "[3] (стр. 1–1" in prompt
     assert "[4]" not in prompt
@@ -148,6 +151,7 @@ def test_ask_debug_reports_branch_counts_and_used_fragments(settings):
     assert [item.chunk_index for item in debug.reranked] == [4, 1, 0]
     assert debug.reranked[0].in_dense is False and debug.reranked[0].in_sparse is False
     assert debug.reranked[2].in_dense is True and debug.reranked[2].in_sparse is True
+    assert (debug.reranked[0].page, debug.reranked[0].page_to) == (5, 6)
     assert debug.after_threshold == 3
     assert debug.used_in_answer == [4, 1]
     assert set(debug.timings_ms) == {"embed", "search", "rerank", "llm"}

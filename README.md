@@ -152,19 +152,19 @@ scripts/               генерация образцов, оценка кач�
 
 ```json
 "debug": {
-  "dense_hits": 30,          // сколько фрагментов дала dense-ветвь
-  "sparse_hits": 30,         // сколько дала BM25-ветвь
-  "fused_candidates": 30,    // кандидатов после объединения в Qdrant (вход реранкера)
+  "dense_hits": 50,          // сколько фрагментов дала dense-ветвь
+  "sparse_hits": 50,         // сколько дала BM25-ветвь
+  "fused_candidates": 85,    // кандидатов после объединения в Qdrant (вход реранкера)
   "fusion": "rrf",
   "reranked": [              // top-N после реранкера
     {"chunk_index": 92, "rerank_score": 0.879, "fused_rank": 2,
-     "in_dense": true, "in_sparse": true, "page": 22, "section": "4.2 Штрафные санкции"},
+     "in_dense": true, "in_sparse": true, "page": 22, "page_to": 22, "section": "4.2 Штрафные санкции"},
     {"chunk_index": 182, "rerank_score": 0.835, "fused_rank": 1,
-     "in_dense": true, "in_sparse": true, "page": 42, "section": "7.3 Неустойка за просрочку оплаты"}
+     "in_dense": true, "in_sparse": true, "page": 42, "page_to": 43, "section": "7.3 Неустойка за просрочку оплаты"}
   ],
   "after_threshold": 5,      // осталось после RERANK_MIN_SCORE
   "used_in_answer": [92],    // какие фрагменты использованы в ответе
-  "timings_ms": {"embed": 851, "search": 18, "rerank": 878, "llm": 1520}
+  "timings_ms": {"embed": 587, "search": 15, "rerank": 1098, "llm": 1373}
 }
 ```
 
@@ -182,9 +182,9 @@ scripts/               генерация образцов, оценка кач�
 | `EMBEDDING_MODEL` / `EMBEDDING_DIM` | `openai/text-embedding-3-small` / `1536` | плотные эмбеддинги |
 | `RERANK_MODEL` | `cohere/rerank-v3.5` | реранкер |
 | `SPARSE_MODEL` / `SPARSE_LANGUAGE` | `Qdrant/bm25` / `russian` | BM25 и язык стемминга |
-| `DENSE_LIMIT` / `SPARSE_LIMIT` | `30` / `30` | кандидатов из каждой ветви |
+| `DENSE_LIMIT` / `SPARSE_LIMIT` | `50` / `50` | кандидатов из каждой ветви |
 | `FUSION` | `rrf` | способ объединения: `rrf` или `dbsf` |
-| `RERANK_CANDIDATES` | `30` | сколько кандидатов подаётся на реранкер |
+| `RERANK_CANDIDATES` | `100` | сколько кандидатов после слияния подаётся на реранкер (по умолчанию — всё объединение ветвей) |
 | `RERANK_TOP_N` | `5` | сколько фрагментов после реранка идёт в LLM |
 | `RERANK_MIN_SCORE` | `0.1` | порог релевантности; ниже — `found=false` без LLM |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1000` / `150` | размер фрагмента и перекрытие (символы) |
@@ -203,7 +203,9 @@ scripts/               генерация образцов, оценка кач�
 
 **BM25 в Qdrant: IDF на стороне сервера, русский стемминг.** Разреженный вектор хранит частоты терминов, а IDF считает Qdrant (`modifier=IDF`) по всей коллекции. Поэтому при добавлении документов не нужно пересчитывать веса. `FastEmbedSparse(..., language="russian")` приводит «поставки» и «поставка» к одной основе.
 
-**Зачем реранкер, если поиск уже гибридный.** Гибридный поиск сравнивает заранее посчитанные векторы вопроса и фрагмента по отдельности. Cross-encoder читает пару «вопрос + фрагмент» целиком и точнее отличает «неустойку за просрочку поставки» от «неустойки за просрочку оплаты». Он дорогой, поэтому его вход ограничен (`RERANK_CANDIDATES`), а в LLM уходят только `RERANK_TOP_N` лучших.
+**Зачем реранкер, если поиск уже гибридный.** Гибридный поиск сравнивает заранее посчитанные векторы вопроса и фрагмента по отдельности. Cross-encoder читает пару «вопрос + фрагмент» целиком и точнее отличает «неустойку за просрочку поставки» от «неустойки за просрочку оплаты». В LLM уходят только `RERANK_TOP_N` лучших.
+
+**Реранкер видит всё объединение ветвей (`RERANK_CANDIDATES=100 ≥ 50 + 50`).** Подбор на эталонном наборе показал, что узкое место — полнота кандидатов, а не реранкер. RRF вытесняет фрагмент, найденный только одной ветвью, даже если реранкер оценил бы его выше всех. Cohere тарифицирует реранк за запрос (до 100 документов), поэтому полный вход почти ничего не стоит, а добавляет около 0,3 с. Подробности в [docs/eval-report.md](docs/eval-report.md).
 
 **Реранкер через OpenRouter `/rerank`, свой класс `OpenRouterReranker(BaseDocumentCompressor)`.** Готовой LangChain-интеграции для OpenRouter-rerank нет. Класс ~60 строк реализует стандартный интерфейс LangChain-компрессора. Один ключ на все модели, образ без тяжёлой локальной модели.
 
@@ -265,11 +267,22 @@ uv run python scripts/evaluate.py --out docs/eval-report.md
 
 Скрипт загружает образцы (если их ещё нет), задаёт все вопросы с `debug=true` и считает метрики. Цели: вопросы без ответа → `found=false` в 100% случаев; точные обозначения → правильные страница, раздел и значение в 100%; попадание в нужную страницу ≥ 90%.
 
-<!-- EVAL -->
+Результат на значениях по умолчанию (полный отчёт с ответами и подбором параметров — [docs/eval-report.md](docs/eval-report.md)):
+
+| Метрика | Значение | Цель |
+|---|---|---|
+| вопросы без ответа → `found=false` (`absent_correct`) | 100% | 100% |
+| точные обозначения и похожие числа (`exact_hit`) | 100% | 100% |
+| попадание в нужную страницу (`page_hit`) | 100% | ≥ 90% |
+| изоляция документов (`isolation_ok`) | 100% | 100% |
+| нужный фрагмент в top-N реранкера (`retrieval_hit`) | 100% | — |
+| задержка ответа, среднее / p95 | 2,95 / 4,34 с | — |
+
+Главная находка подбора: при исходных 30/30/30 вопрос «Какая организация является Покупателем?» получал `found=false`. Ответ в документе был, но фрагмент с ним не доходил до реранкера. Помогло не расширение ветвей и не смена RRF на DBSF, а подача реранкеру всего объединения кандидатов.
 
 ## Примеры запросов
 
-Ниже — реальный вывод `scripts/run_examples.sh` на поднятом стеке (`docker compose up -d --build`, чистые тома) с документом `samples/contract_supply.pdf`. Скрипт можно перезапустить: `scripts/run_examples.sh > docs/examples-raw.md`.
+Ниже — реальный вывод `scripts/run_examples.sh` на поднятом стеке (`docker compose up -d --build`, чистые тома) с документом `samples/contract_supply.pdf`. Скрипт можно перезапустить: `scripts/run_examples.sh`.
 
 На что обратить внимание:
 
@@ -287,27 +300,27 @@ curl -s -F "file=@samples/contract_supply.pdf" -F "title=Договор пост
 
 ```json
 {
-    "doc_id": "c0153569-6bff-4f36-8157-94f8a21a81ff",
-    "task_id": "2c6f371b-b634-46f3-8cc0-72706edc7226",
-    "status_url": "/tasks/2c6f371b-b634-46f3-8cc0-72706edc7226"
+    "doc_id": "323e6f3f-997f-44e0-bb67-5c17550dc38f",
+    "task_id": "4a8df4cc-eb0d-493a-8531-4966abe94148",
+    "status_url": "/tasks/4a8df4cc-eb0d-493a-8531-4966abe94148"
 }
 ```
 
 ### Состояние задачи во время индексации
 
 ```bash
-curl -s http://localhost:8000/tasks/2c6f371b-b634-46f3-8cc0-72706edc7226
+curl -s http://localhost:8000/tasks/4a8df4cc-eb0d-493a-8531-4966abe94148
 ```
 
 ```json
 {
-    "task_id": "2c6f371b-b634-46f3-8cc0-72706edc7226",
-    "doc_id": "c0153569-6bff-4f36-8157-94f8a21a81ff",
+    "task_id": "4a8df4cc-eb0d-493a-8531-4966abe94148",
+    "doc_id": "323e6f3f-997f-44e0-bb67-5c17550dc38f",
     "state": "PROGRESS",
     "progress": {
-        "stage": "chunking",
-        "current": 0,
-        "total": 1
+        "stage": "embedding",
+        "current": 1,
+        "total": 5
     }
 }
 ```
@@ -315,16 +328,16 @@ curl -s http://localhost:8000/tasks/2c6f371b-b634-46f3-8cc0-72706edc7226
 ### Состояние задачи после индексации
 
 ```bash
-curl -s http://localhost:8000/tasks/2c6f371b-b634-46f3-8cc0-72706edc7226
+curl -s http://localhost:8000/tasks/4a8df4cc-eb0d-493a-8531-4966abe94148
 ```
 
 ```json
 {
-    "task_id": "2c6f371b-b634-46f3-8cc0-72706edc7226",
-    "doc_id": "c0153569-6bff-4f36-8157-94f8a21a81ff",
+    "task_id": "4a8df4cc-eb0d-493a-8531-4966abe94148",
+    "doc_id": "323e6f3f-997f-44e0-bb67-5c17550dc38f",
     "state": "SUCCESS",
     "result": {
-        "doc_id": "c0153569-6bff-4f36-8157-94f8a21a81ff",
+        "doc_id": "323e6f3f-997f-44e0-bb67-5c17550dc38f",
         "pages": 73,
         "chunks": 318
     }
@@ -340,11 +353,11 @@ curl -s http://localhost:8000/documents
 ```json
 [
     {
-        "doc_id": "c0153569-6bff-4f36-8157-94f8a21a81ff",
+        "doc_id": "323e6f3f-997f-44e0-bb67-5c17550dc38f",
         "title": "Договор поставки № 47/2026",
         "pages": 73,
         "chunks": 318,
-        "uploaded_at": "2026-10-19T17:37:28.064447Z"
+        "uploaded_at": "2026-10-19T17:55:44.045350Z"
     }
 ]
 ```
@@ -352,12 +365,12 @@ curl -s http://localhost:8000/documents
 ### Вопрос с точным обозначением: номер пункта
 
 ```bash
-curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a81ff/ask -H 'Content-Type: application/json' -d '{"question": "Что установлено пунктом 9.4.2 договора?", "debug": false}'
+curl -s -X POST http://localhost:8000/documents/323e6f3f-997f-44e0-bb67-5c17550dc38f/ask -H 'Content-Type: application/json' -d '{"question": "Что установлено пунктом 9.4.2 договора?", "debug": false}'
 ```
 
 ```json
 {
-    "answer": "Пунктом 9.4.2 договора установлено, что настоящий Договор составлен на русском языке. В случае расхождения текста Договора и его переводов на иные языки приоритет имеет текст на русском языке.",
+    "answer": "Пункт 9.4.2 устанавливает, что настоящий Договор составлен на русском языке, и в случае расхождения текста Договора и его переводов на иные языки приоритет имеет текст на русском языке.",
     "found": true,
     "citations": [
         {
@@ -374,7 +387,7 @@ curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a
 ### Вопрос с точным обозначением: ИНН
 
 ```bash
-curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a81ff/ask -H 'Content-Type: application/json' -d '{"question": "Какой ИНН у Поставщика?", "debug": false}'
+curl -s -X POST http://localhost:8000/documents/323e6f3f-997f-44e0-bb67-5c17550dc38f/ask -H 'Content-Type: application/json' -d '{"question": "Какой ИНН у Поставщика?", "debug": false}'
 ```
 
 ```json
@@ -396,7 +409,7 @@ curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a
 ### Вопрос с точным обозначением: сумма
 
 ```bash
-curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a81ff/ask -H 'Content-Type: application/json' -d '{"question": "Какова общая цена договора?", "debug": false}'
+curl -s -X POST http://localhost:8000/documents/323e6f3f-997f-44e0-bb67-5c17550dc38f/ask -H 'Content-Type: application/json' -d '{"question": "Какова общая цена договора?", "debug": false}'
 ```
 
 ```json
@@ -418,7 +431,7 @@ curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a
 ### Перефразированный вопрос
 
 ```bash
-curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a81ff/ask -H 'Content-Type: application/json' -d '{"question": "Можно ли отказаться принимать товар с неправильными этикетками?", "debug": false}'
+curl -s -X POST http://localhost:8000/documents/323e6f3f-997f-44e0-bb67-5c17550dc38f/ask -H 'Content-Type: application/json' -d '{"question": "Можно ли отказаться принимать товар с неправильными этикетками?", "debug": false}'
 ```
 
 ```json
@@ -440,7 +453,7 @@ curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a
 ### Вопрос, ответа на который в документе нет
 
 ```bash
-curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a81ff/ask -H 'Content-Type: application/json' -d '{"question": "Какой порядок страхования груза при перевозке?", "debug": false}'
+curl -s -X POST http://localhost:8000/documents/323e6f3f-997f-44e0-bb67-5c17550dc38f/ask -H 'Content-Type: application/json' -d '{"question": "Какой порядок страхования груза при перевозке?", "debug": false}'
 ```
 
 ```json
@@ -454,7 +467,7 @@ curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a
 ### Диагностика (debug=true)
 
 ```bash
-curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a81ff/ask -H 'Content-Type: application/json' -d '{"question": "Какой размер неустойки за просрочку поставки товара?", "debug": true}'
+curl -s -X POST http://localhost:8000/documents/323e6f3f-997f-44e0-bb67-5c17550dc38f/ask -H 'Content-Type: application/json' -d '{"question": "Какой размер неустойки за просрочку поставки товара?", "debug": true}'
 ```
 
 ```json
@@ -471,9 +484,9 @@ curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a
         }
     ],
     "debug": {
-        "dense_hits": 30,
-        "sparse_hits": 30,
-        "fused_candidates": 30,
+        "dense_hits": 50,
+        "sparse_hits": 50,
+        "fused_candidates": 85,
         "fusion": "rrf",
         "reranked": [
             {
@@ -483,6 +496,7 @@ curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a
                 "in_dense": true,
                 "in_sparse": true,
                 "page": 22,
+                "page_to": 22,
                 "section": "4.2 Штрафные санкции"
             },
             {
@@ -492,34 +506,38 @@ curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a
                 "in_dense": true,
                 "in_sparse": true,
                 "page": 42,
+                "page_to": 43,
                 "section": "7.3 Неустойка за просрочку оплаты"
             },
             {
-                "chunk_index": 129,
-                "rerank_score": 0.19205433,
-                "fused_rank": 17,
+                "chunk_index": 89,
+                "rerank_score": 0.20424701,
+                "fused_rank": 49,
                 "in_dense": true,
                 "in_sparse": false,
-                "page": 30,
-                "section": "5.3 Отказ от приёмки"
+                "page": 21,
+                "page_to": 21,
+                "section": "4.1 Общие положения об ответственности"
             },
             {
-                "chunk_index": 289,
-                "rerank_score": 0.18246956,
-                "fused_rank": 7,
-                "in_dense": true,
-                "in_sparse": true,
-                "page": 67,
-                "section": "12.1 Изменение договора"
-            },
-            {
-                "chunk_index": 128,
-                "rerank_score": 0.16963993,
-                "fused_rank": 6,
+                "chunk_index": 214,
+                "rerank_score": 0.20272751,
+                "fused_rank": 82,
                 "in_dense": true,
                 "in_sparse": false,
-                "page": 30,
-                "section": "5.3 Отказ от приёмки"
+                "page": 50,
+                "page_to": 50,
+                "section": "8.3 Последствия"
+            },
+            {
+                "chunk_index": 58,
+                "rerank_score": 0.1963176,
+                "fused_rank": 54,
+                "in_dense": true,
+                "in_sparse": false,
+                "page": 14,
+                "page_to": 14,
+                "section": "3.1 Сроки поставки"
             }
         ],
         "after_threshold": 5,
@@ -527,12 +545,11 @@ curl -s -X POST http://localhost:8000/documents/c0153569-6bff-4f36-8157-94f8a21a
             92
         ],
         "timings_ms": {
-            "embed": 851,
-            "search": 18,
-            "rerank": 878,
-            "llm": 1520
+            "embed": 587,
+            "search": 15,
+            "rerank": 1098,
+            "llm": 1373
         }
     }
 }
 ```
-

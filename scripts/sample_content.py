@@ -23,6 +23,8 @@ class Fact:
     section: str | None = None
     expect_contains: str = ""
     cross_page: bool = False
+    # другие места, где факт тоже честно указан: (текст для поиска страниц, раздел)
+    also_in: tuple[tuple[str, str], ...] = ()
 
 
 PREAMBLE = (
@@ -185,6 +187,7 @@ FACTS = [
         locate="Покупатель: ООО «Северный Терминал»",
         section="13.2 Реквизиты Покупателя",
         expect_contains="Северный Терминал",
+        also_in=(("«Северный Терминал», именуемое в дальнейшем «Покупатель»", "Вводная часть"),),
     ),
     Fact(
         "exact_clause",
